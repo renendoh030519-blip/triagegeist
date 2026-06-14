@@ -43,11 +43,24 @@ print("=" * 65)
 print("TRIAGEGEIST -- Triage Second-Opinion System")
 print("=" * 65)
 
-train = pd.read_csv('/kaggle/input/triagegeist/train.csv')
-test  = pd.read_csv('/kaggle/input/triagegeist/test.csv')
-cc    = pd.read_csv('/kaggle/input/triagegeist/chief_complaints.csv')
-ph    = pd.read_csv('/kaggle/input/triagegeist/patient_history.csv')
-sub   = pd.read_csv('/kaggle/input/triagegeist/sample_submission.csv')
+import os
+_base = '/kaggle/input'
+_found = None
+for _d in os.listdir(_base):
+    _path = os.path.join(_base, _d)
+    if os.path.isdir(_path) and 'train.csv' in os.listdir(_path):
+        _found = _path
+        break
+if _found is None:
+    raise FileNotFoundError(f"train.csv not found under {_base}. Contents: {os.listdir(_base)}")
+print(f"Data directory: {_found}")
+DATA = _found
+
+train = pd.read_csv(os.path.join(DATA, 'train.csv'))
+test  = pd.read_csv(os.path.join(DATA, 'test.csv'))
+cc    = pd.read_csv(os.path.join(DATA, 'chief_complaints.csv'))
+ph    = pd.read_csv(os.path.join(DATA, 'patient_history.csv'))
+sub   = pd.read_csv(os.path.join(DATA, 'sample_submission.csv'))
 
 cc_text = cc[['patient_id', 'chief_complaint_raw']]
 train = train.merge(cc_text, on='patient_id', how='left')
