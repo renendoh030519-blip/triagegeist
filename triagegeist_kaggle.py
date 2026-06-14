@@ -44,15 +44,13 @@ print("TRIAGEGEIST -- Triage Second-Opinion System")
 print("=" * 65)
 
 import os
-_base = '/kaggle/input'
 _found = None
-for _d in os.listdir(_base):
-    _path = os.path.join(_base, _d)
-    if os.path.isdir(_path) and 'train.csv' in os.listdir(_path):
-        _found = _path
+for _root, _dirs, _files in os.walk('/kaggle/input'):
+    if 'train.csv' in _files:
+        _found = _root
         break
 if _found is None:
-    raise FileNotFoundError(f"train.csv not found under {_base}. Contents: {os.listdir(_base)}")
+    raise FileNotFoundError("train.csv not found. Tree: " + str(list(os.walk('/kaggle/input'))))
 print(f"Data directory: {_found}")
 DATA = _found
 
