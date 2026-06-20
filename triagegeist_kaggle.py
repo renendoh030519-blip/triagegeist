@@ -270,7 +270,7 @@ for fold, (tr_idx, va_idx) in enumerate(skf.split(X_clin, y)):
     print(f"  Fold {fold+1}: QWK={qwk:.4f}")
 
 qwk_clin_mean = np.mean(qwk_clin)
-print(f"\nClinical model  -- CV QWK: {qwk_clin_mean:.4f} ? {np.std(qwk_clin):.4f}")
+print(f"\nClinical model  -- CV QWK: {qwk_clin_mean:.4f} +/- {np.std(qwk_clin):.4f}")
 
 # =============================================================================
 # 6. TRAIN FULL MODEL (with demographics) -- for QWK gap comparison
@@ -299,9 +299,9 @@ for fold, (tr_idx, va_idx) in enumerate(skf.split(X_full, y)):
     last_full_model = m2
 
 qwk_full_mean = np.mean(qwk_full)
-print(f"Full model      -- CV QWK: {qwk_full_mean:.4f} ? {np.std(qwk_full):.4f}")
+print(f"Full model      -- CV QWK: {qwk_full_mean:.4f} +/- {np.std(qwk_full):.4f}")
 print(f"\n? QWK gap (demographics removed): {qwk_full_mean - qwk_clin_mean:+.4f}")
-print(f"  ? Demographic features account for {(qwk_full_mean - qwk_clin_mean) / qwk_full_mean * 100:.1f}% "
+print(f"  -> Demographic features account for {(qwk_full_mean - qwk_clin_mean) / qwk_full_mean * 100:.1f}% "
       f"of the full model's predictive power")
 
 # =============================================================================
@@ -460,7 +460,7 @@ print(f"    Interpretation: {shuffle_interp}")
 # =============================================================================
 # 7. UNDERTRIAGE DETECTION
 # =============================================================================
-print("\n[Bias] Computing triage bias (clinical prediction ? assigned acuity)...")
+print("\n[Bias] Computing triage bias (clinical prediction - assigned acuity)...")
 
 train['pred_clin']    = np.argmax(oof_clin, axis=1) + 1
 train['pred_clin_lo'] = oof_clin[:, 0]  # P(acuity=1) -- critical risk
@@ -472,8 +472,8 @@ train['severely_ut']  = (train['bias'] <= -2).astype(int)
 
 n_under = train['undertriaged'].sum()
 n_severe = train['severely_ut'].sum()
-print(f"  Undertriaged (?1 level): {n_under:,} ({n_under/len(train)*100:.1f}%)")
-print(f"  Severely undertriaged (?2 levels): {n_severe:,} ({n_severe/len(train)*100:.1f}%)")
+print(f"  Undertriaged (>=1 level): {n_under:,} ({n_under/len(train)*100:.1f}%)")
+print(f"  Severely undertriaged (>=2 levels): {n_severe:,} ({n_severe/len(train)*100:.1f}%)")
 
 # =============================================================================
 # 8. DEMOGRAPHIC EQUITY AUDIT
@@ -493,7 +493,7 @@ def equity_stats(col_orig, label):
     # Chi-square test on undertriage counts
     ct = pd.crosstab(train[col_orig], train['undertriaged'])
     chi2, p, dof, _ = chi2_contingency(ct)
-    print(f"\n  [{label}] ??={chi2:.2f}, dof={dof}, p={p:.4f}")
+    print(f"\n  [{label}] chi2={chi2:.2f}, dof={dof}, p={p:.4f}")
     print(groups[['n','mean_bias','ci95','undertriage_rate','severe_ut_rate']].to_string())
     return groups, p
 
@@ -860,8 +860,8 @@ ax.legend(fontsize=8)
 ax = fig1.add_subplot(gs1[0, 3])
 funnel_vals = [len(train), n_under, n_severe]
 funnel_labs = [f'All Patients\n({len(train):,})',
-               f'Undertriaged ?1\n({n_under:,}, {n_under/len(train)*100:.1f}%)',
-               f'Severe ?2\n({n_severe:,}, {n_severe/len(train)*100:.1f}%)']
+               f'Undertriaged (>=1 lvl)\n({n_under:,}, {n_under/len(train)*100:.1f}%)',
+               f'Severe (>=2 lvl)\n({n_severe:,}, {n_severe/len(train)*100:.1f}%)']
 funnel_cols = ['#4575b4','#fdae61','#d73027']
 ax.barh(range(3), funnel_vals, color=funnel_cols, alpha=0.85)
 ax.set_yticks(range(3))
@@ -894,7 +894,7 @@ for sex, grp in train.groupby('sex'):
             label=label, color=sex_palette.get(sex,'gray'),
             density=True, align='left')
 ax.axvline(0, color='black', linestyle='--', lw=1.5)
-ax.set_xlabel('Triage Bias (Clinical Prediction ? Assigned)', fontsize=10)
+ax.set_xlabel('Triage Bias (Clinical Prediction - Assigned)', fontsize=10)
 ax.set_ylabel('Density', fontsize=10)
 ax.set_title('Bias Distribution by Sex\n(negative = patient assigned less urgent than vitals suggest)',
              fontsize=11)
@@ -918,7 +918,7 @@ ax.axhline(train['undertriaged'].mean()*100, color='black', linestyle='--', lw=1
 ax.set_xticks(range(len(age_plot)))
 ax.set_xticklabels(age_plot.index, rotation=15, fontsize=10)
 ax.set_ylabel('Undertriage Rate (%)', fontsize=10)
-ax.set_title(f'Undertriage Rate by Age Group\n(??-test p={age_p:.4f})', fontsize=11)
+ax.set_title(f'Undertriage Rate by Age Group\n(chi-square test p={age_p:.4f})', fontsize=11)
 ax.legend(fontsize=9)
 for i, (_, row) in enumerate(age_plot.iterrows()):
     ax.text(i, row['undertriage_rate']*100 + 0.1,
@@ -939,7 +939,7 @@ ax.axvline(train['undertriaged'].mean()*100, color='black', linestyle='--', lw=1
 ax.set_yticks(range(len(lang_plot)))
 ax.set_yticklabels(lang_plot.index, fontsize=10)
 ax.set_xlabel('Undertriage Rate (%)', fontsize=10)
-ax.set_title(f'Undertriage Rate by Language\n(??-test p={lang_p:.4f})', fontsize=11)
+ax.set_title(f'Undertriage Rate by Language\n(chi-square test p={lang_p:.4f})', fontsize=11)
 ax.legend(fontsize=9)
 for i, (_, row) in enumerate(lang_plot.iterrows()):
     ax.text(row['undertriage_rate']*100 + 0.05, i,
@@ -957,10 +957,14 @@ fig2.suptitle('TRIAGEGEIST -- Clinical Decision Support Demo\n'
               fontsize=14, fontweight='bold')
 
 # Find a clear undertriage case (model says ESI-1 or 2, nurse assigned 4 or 5)
-candidates = train[(train['pred_clin'] <= 2) & (train['actual'] >= 4)].index
+shap_pos = {int(g): p for p, g in enumerate(shap_idx)}
+cand_all = train[(train['pred_clin'] <= 2) & (train['actual'] >= 4)].index
+candidates = [c for c in cand_all if int(c) in shap_pos]
+if len(candidates) == 0:
+    candidates = [c for c in train[train['undertriaged'] == 1].index if int(c) in shap_pos]
 if len(candidates) > 0:
     demo_idx_global = candidates[0]
-    demo_idx_local  = np.where(shap_idx == demo_idx_global)[0]
+    demo_idx_local  = np.array([shap_pos[int(demo_idx_global)]])
 
     if len(demo_idx_local) > 0:
         di = demo_idx_local[0]
@@ -983,8 +987,8 @@ if len(candidates) > 0:
                      f'Model: ESI-{int(train.loc[demo_idx_global,"pred_clin"])})',
                      fontsize=11)
         from matplotlib.patches import Patch
-        ax.legend(handles=[Patch(color='#d73027', label='? Increases urgency signal'),
-                           Patch(color='#4575b4', label='? Decreases urgency signal')],
+        ax.legend(handles=[Patch(color='#d73027', label='Increases urgency signal'),
+                           Patch(color='#4575b4', label='Decreases urgency signal')],
                   fontsize=9)
 
 # Alert system: triage gap score = assigned_acuity - pred_clin
@@ -1013,6 +1017,7 @@ threshold_gap = 1
 flagged_mask = (train['triage_gap'] >= threshold_gap) & (train['actual'] >= 3)
 n_alerted = flagged_mask.sum()
 alert_precision = (flagged_mask & (train['undertriaged'] == 1)).sum() / n_alerted if n_alerted > 0 else 0
+alert_severe_share = (flagged_mask & (train['severely_ut'] == 1)).sum() / n_alerted if n_alerted > 0 else 0
 
 ax2 = axes[1]
 gap_counts = train['triage_gap'].value_counts().sort_index()
@@ -1024,7 +1029,7 @@ ax2.set_xlabel('Triage Gap (Assigned Acuity - Clinical Model Prediction)', fonts
 ax2.set_ylabel('Number of Patients', fontsize=10)
 ax2.set_title(f'Triage Gap Distribution\n'
               f'Red = alert zone: {n_alerted:,} patients ({n_alerted/len(train)*100:.1f}%) '
-              f'flagged, precision={alert_precision:.0%}',
+              f'flagged; {alert_severe_share:.0%} are severe (>=2-level) undertriage',
               fontsize=11)
 ax2.legend(fontsize=9)
 from matplotlib.patches import Patch
