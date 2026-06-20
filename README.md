@@ -53,7 +53,9 @@ TRIAGEGEIST is a clinical AI second-opinion system for emergency department tria
 |------|-------------|
 | `triagegeist_kaggle.py` | Main solution: 5-model ensemble, NLP ablation, WRRS, equity audit |
 | `triagegeist_kaggle.ipynb` | Kaggle Notebook version |
-| `writeup_v3.md` | Full writeup (v3 — current) |
+| `writeup_v4.md` | **Full writeup (v4 — current submission version)** |
+| `writeup_paste_v4.txt` | Plain-text paste version of the v4 writeup |
+| `cover_image_560x280.png` | Cover image (Kaggle-spec 560×280) |
 | `fig1_overview.png` | Main 8-panel analysis figure |
 | `fig2_decision_support.png` | Alert system visualization |
 | `fig3_provider_analysis.png` | Provider-level undertriage audit |
