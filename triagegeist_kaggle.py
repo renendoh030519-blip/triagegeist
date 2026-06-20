@@ -389,6 +389,75 @@ print(f"    + LSA only                  : {qwk_lsa_mean:.4f}  ({qwk_lsa_mean-qwk
 print(f"    + Keywords + LSA (full NLP) : {qwk_nlp_mean:.4f}  ({qwk_nlp_mean-qwk_clin_mean:+.4f})")
 
 # =============================================================================
+# 6d. TEXT-SHUFFLE CONTROL -- Validating LSA signal vs. synthetic leakage
+# =============================================================================
+# Hypothesis: if LSA lift is genuine (text encodes real clinical semantics),
+# then randomly permuting text across patients (breaking all text-label links)
+# should cause QWK to drop back to clinical baseline (~0.9296).
+# If QWK stays high on shuffled text, it indicates direct acuity encoding in the
+# synthetic text generation process -- a strong leakage signal.
+print("\n[Shuffle Control] Text-shuffle experiment: validating LSA signal authenticity...")
+print("  Permuting chief_complaint_raw across patients (n=80,000)...")
+
+np.random.seed(42)
+shuffled_text = train['chief_complaint_raw'].fillna('').values.copy()
+np.random.shuffle(shuffled_text)
+
+tfidf_shuffle = TfidfVectorizer(
+    max_features=1000, ngram_range=(1, 2),
+    min_df=10, sublinear_tf=True, stop_words='english'
+)
+tfidf_shuffle_mat = tfidf_shuffle.fit_transform(shuffled_text)
+svd_shuffle = TruncatedSVD(n_components=20, random_state=42)
+lsa_shuffle_arr = svd_shuffle.fit_transform(tfidf_shuffle_mat)
+
+train_p_shuffle = train_p.copy()
+for i, col in enumerate(NLP_SVD_COLS):
+    train_p_shuffle[col] = lsa_shuffle_arr[:, i]
+
+X_lsa_shuffle = train_p_shuffle[LSA_ONLY].values.astype(np.float32)
+
+qwk_shuffle = []
+for fold, (tr_idx, va_idx) in enumerate(skf.split(X_lsa_shuffle, y)):
+    dtrain_sh = lgb.Dataset(X_lsa_shuffle[tr_idx], label=y[tr_idx])
+    dval_sh   = lgb.Dataset(X_lsa_shuffle[va_idx], label=y[va_idx])
+    m_sh = lgb.train(params_clin, dtrain_sh, num_boost_round=1000,
+                     valid_sets=[dval_sh],
+                     callbacks=[lgb.early_stopping(50, verbose=False),
+                                lgb.log_evaluation(500)])
+    p_sh = m_sh.predict(X_lsa_shuffle[va_idx])
+    qwk_shuffle.append(
+        cohen_kappa_score(y[va_idx], np.argmax(p_sh, axis=1), weights='quadratic')
+    )
+
+qwk_shuffle_mean = np.mean(qwk_shuffle)
+lsa_drop = qwk_lsa_mean - qwk_shuffle_mean
+
+print(f"\n  Text-Shuffle Control Results:")
+print(f"    LSA-Only QWK (genuine text) : {qwk_lsa_mean:.4f}")
+print(f"    LSA-Only QWK (shuffled text): {qwk_shuffle_mean:.4f}")
+print(f"    QWK drop from shuffle       : {lsa_drop:+.4f}")
+
+if qwk_shuffle_mean <= qwk_clin_mean + 0.005:
+    shuffle_verdict = "DROPS TO BASELINE"
+    shuffle_interp = (
+        "Shuffled text QWK collapses to clinical baseline. This confirms the LSA model "
+        "learns from genuine text-acuity correlations in the training data, not from "
+        "random noise or feature leakage in the modeling pipeline. The lift is a property "
+        "of the synthetic data generation (text aligned to acuity labels), not a modeling artifact."
+    )
+else:
+    shuffle_verdict = "REMAINS ELEVATED"
+    shuffle_interp = (
+        "Shuffled text QWK remains above clinical baseline. This indicates the synthetic text "
+        "generation process directly encodes acuity labels into word-level statistics, "
+        "independent of patient-level text assignment. Real-world NLP lift would be lower."
+    )
+
+print(f"    Verdict: {shuffle_verdict}")
+print(f"    Interpretation: {shuffle_interp}")
+
+# =============================================================================
 # 7. UNDERTRIAGE DETECTION
 # =============================================================================
 print("\n[Bias] Computing triage bias (clinical prediction ? assigned acuity)...")
@@ -941,8 +1010,9 @@ for thr in thresholds_gap:
 
 # Use gap >= 1 as primary alert threshold
 threshold_gap = 1
-n_alerted = ((train['triage_gap'] >= threshold_gap) & (train['actual'] >= 3)).sum()
-alert_precision = ((train['triage_gap'] >= threshold_gap) & (train['undertriaged'] == 1)).sum() / n_alerted
+flagged_mask = (train['triage_gap'] >= threshold_gap) & (train['actual'] >= 3)
+n_alerted = flagged_mask.sum()
+alert_precision = (flagged_mask & (train['undertriaged'] == 1)).sum() / n_alerted if n_alerted > 0 else 0
 
 ax2 = axes[1]
 gap_counts = train['triage_gap'].value_counts().sort_index()
@@ -1311,8 +1381,9 @@ print("\n" + "=" * 65)
 print("FINAL FINDINGS REPORT")
 print("=" * 65)
 
-n_alerted_report = ((train['triage_gap'] >= threshold_gap) & (train['actual'] >= 3)).sum()
-alert_prec_report = ((train['triage_gap'] >= threshold_gap) & (train['undertriaged'] == 1)).sum() / n_alerted_report
+flagged_mask_report = (train['triage_gap'] >= threshold_gap) & (train['actual'] >= 3)
+n_alerted_report = flagged_mask_report.sum()
+alert_prec_report = (flagged_mask_report & (train['undertriaged'] == 1)).sum() / n_alerted_report if n_alerted_report > 0 else 0
 
 print(f"""
 [Finding 1] Synthetic Dataset is Demographically Equitable
