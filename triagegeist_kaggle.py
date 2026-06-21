@@ -300,7 +300,7 @@ for fold, (tr_idx, va_idx) in enumerate(skf.split(X_full, y)):
 
 qwk_full_mean = np.mean(qwk_full)
 print(f"Full model      -- CV QWK: {qwk_full_mean:.4f} +/- {np.std(qwk_full):.4f}")
-print(f"\n? QWK gap (demographics removed): {qwk_full_mean - qwk_clin_mean:+.4f}")
+print(f"\n-> QWK gap (demographics removed): {qwk_full_mean - qwk_clin_mean:+.4f}")
 print(f"  -> Demographic features account for {(qwk_full_mean - qwk_clin_mean) / qwk_full_mean * 100:.1f}% "
       f"of the full model's predictive power")
 
